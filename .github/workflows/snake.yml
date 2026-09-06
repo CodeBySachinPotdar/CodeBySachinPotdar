@@ -22,19 +22,34 @@ jobs:
             dist/github-contribution-grid-snake-dark.svg?palette=github-dark
 
       - name: Publish SVG to output branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git clone --depth 1 --branch output \
-            https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} output-repo \
-            || git clone https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} output-repo
+          git clone \
+            https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git \
+            output-repo
 
           cd output-repo
 
-          rm -rf ./*
+          # Create output branch if it doesn't exist.
+          if git ls-remote --exit-code --heads origin output > /dev/null 2>&1; then
+            git fetch origin output
+            git checkout output
+          else
+            git checkout --orphan output
+          fi
+
+          # Remove existing files, including hidden files.
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+
+          # Copy generated SVG files.
           cp -r ../dist/* .
 
           git add .
-          git commit -m "Update contribution snake" || echo "No changes"
+
+          git commit -m "Update contribution snake" || echo "No changes to commit"
+
           git push origin output
